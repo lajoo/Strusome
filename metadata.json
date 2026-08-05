@@ -1,0 +1,6 @@
+{
+  "name": "LinkedIn Post Creator",
+  "description": "Internal team web app for generating on-brand 1080x1080 LinkedIn post graphics with structured templates, background image selection, photo placeholders, typography controls, and client-side PNG export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
