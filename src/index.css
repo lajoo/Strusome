@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+@font-face {
+  font-family: "Alwyn New";
+  src: url("/fonts/alwyn-new-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+}

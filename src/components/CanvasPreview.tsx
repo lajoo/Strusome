@@ -31,7 +31,50 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
   const [bgImgEl, setBgImgEl] = useState<HTMLImageElement | null>(null);
   const [slotImgEl, setSlotImgEl] = useState<HTMLImageElement | null>(null);
   const [secSlotImgEl, setSecSlotImgEl] = useState<HTMLImageElement | null>(null);
+  const [productLogoImgEl, setProductLogoImgEl] = useState<HTMLImageElement | null>(null);
+  const [strusoftLogoImgEl, setStrusoftLogoImgEl] = useState<HTMLImageElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(0.55); // Default fit zoom for typical desktop screen
+  const [fontsLoaded, setFontsLoaded] = useState<boolean>(false);
+  const fontWarnedRef = useRef<boolean>(false);
+
+  // Load StruSoft corporate logo image
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = '/product-logos/strusoft-logo.png';
+    img.onload = () => setStrusoftLogoImgEl(img);
+    img.onerror = () => setStrusoftLogoImgEl(null);
+  }, []);
+
+  // Load font before first canvas render
+  useEffect(() => {
+    let isMounted = true;
+    const loadFont = async () => {
+      try {
+        await document.fonts.load('700 64px "Alwyn New"');
+        await document.fonts.ready;
+        if (!document.fonts.check('700 64px "Alwyn New"') && !fontWarnedRef.current) {
+          fontWarnedRef.current = true;
+          console.warn('Font "Alwyn New" file is missing or failed to load. Falling back to sans-serif.');
+        }
+      } catch (err) {
+        if (!fontWarnedRef.current) {
+          fontWarnedRef.current = true;
+          console.warn('Font "Alwyn New" file is missing or failed to load. Falling back to sans-serif.', err);
+        }
+      } finally {
+        if (isMounted) {
+          setFontsLoaded(true);
+        }
+      }
+    };
+
+    loadFont();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Load Background image element
   useEffect(() => {
@@ -51,10 +94,19 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
       setSlotImgEl(null);
       return;
     }
+    const path = libraryImage.url;
+
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = libraryImage.url;
-    img.onload = () => setSlotImgEl(img);
+    if (!path.startsWith('blob:')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.src = path;
+    img.onload = () => {
+      setSlotImgEl(img);
+    };
+    img.onerror = () => {
+      setSlotImgEl(null);
+    };
   }, [libraryImage?.url]);
 
   // Load Secondary Slot image element (if applicable)
@@ -69,8 +121,22 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
     img.onload = () => setSecSlotImgEl(img);
   }, [secondaryImage?.url]);
 
+  // Load Product Logo image element
+  useEffect(() => {
+    if (!state.selectedProductLogo?.src) {
+      setProductLogoImgEl(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = state.selectedProductLogo.src;
+    img.onload = () => setProductLogoImgEl(img);
+    img.onerror = () => setProductLogoImgEl(null);
+  }, [state.selectedProductLogo?.src]);
+
   // Render trigger whenever relevant props/state/images change
   useEffect(() => {
+    if (!fontsLoaded) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -83,13 +149,30 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
       bgImgEl,
       slotImgEl,
       secSlotImgEl,
+      productLogoImgEl,
+      strusoftLogoImgEl,
       { isExport: false }
     );
-  }, [state, template, background, libraryImage, secondaryImage, bgImgEl, slotImgEl, secSlotImgEl]);
+
+    if (slotImgEl && slotImgEl.complete && slotImgEl.naturalWidth !== 0) {
+      console.log('Image draw complete');
+    }
+  }, [state, template, background, libraryImage, secondaryImage, bgImgEl, slotImgEl, secSlotImgEl, productLogoImgEl, strusoftLogoImgEl, fontsLoaded]);
 
   // Expose export handles
   useImperativeHandle(ref, () => ({
-    exportBlob: () => {
+    exportBlob: async () => {
+      await document.fonts.ready;
+      let exportSlotImg = slotImgEl;
+      if (libraryImage?.url && (!exportSlotImg || !exportSlotImg.complete)) {
+        exportSlotImg = await new Promise<HTMLImageElement | null>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = libraryImage.url;
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+        });
+      }
       return new Promise<Blob | null>((resolve) => {
         const offscreenCanvas = document.createElement('canvas');
         renderPostToCanvas(
@@ -99,8 +182,10 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
           background,
           libraryImage,
           bgImgEl,
-          slotImgEl,
+          exportSlotImg,
           secSlotImgEl,
+          productLogoImgEl,
+          strusoftLogoImgEl,
           { isExport: true }
         );
         offscreenCanvas.toBlob((blob) => resolve(blob), 'image/png', 1.0);

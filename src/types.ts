@@ -1,4 +1,4 @@
-export type StepId = 'template' | 'background' | 'image' | 'headline' | 'subtitle' | 'download';
+export type StepId = 'template' | 'productLogo' | 'background' | 'image' | 'headline' | 'subtitle' | 'download';
 
 export interface StepInfo {
   id: StepId;
@@ -71,7 +71,7 @@ export interface TemplateConfig {
   tagline: string;
   description: string;
   category: string;
-  layoutStyle: 'strusoft-single' | 'strusoft-dual' | 'spotlight' | 'quote' | 'announcement';
+  layoutStyle: 'strusoft-single' | 'strusoft-dual';
   badgeText?: string;
   accentColor: string;
   defaultHeadline: string;
@@ -106,6 +106,7 @@ export interface LibraryImage {
 
 export interface PostState {
   selectedTemplateId: string;
+  selectedProductLogo: { id: string; name: string; src: string } | null;
   selectedBackgroundId: string;
   selectedImageId: string | null;
   secondaryImageId?: string | null;
@@ -114,6 +115,7 @@ export interface PostState {
   imagePanY: number; // -200 to +200
   headlineText: string;
   subtitleText: string;
+  subtitleEnabled?: boolean;
   productLogoText: string;
   textColorOverride?: string;
   accentColorOverride?: string;

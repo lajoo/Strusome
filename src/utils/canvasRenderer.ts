@@ -9,6 +9,8 @@ export function renderPostToCanvas(
   bgImageElement: HTMLImageElement | null,
   slotImageElement: HTMLImageElement | null,
   secondaryImageElement: HTMLImageElement | null = null,
+  productLogoImageElement: HTMLImageElement | null = null,
+  strusoftLogoImageElement: HTMLImageElement | null = null,
   options: { scaleFactor?: number; isExport?: boolean } = {}
 ) {
   const ctx = canvas.getContext('2d');
@@ -40,8 +42,35 @@ export function renderPostToCanvas(
     }
   }
 
-  // 2. Draw Top-Right Brand Badge (e.g. StruSoft logo box)
-  if (template.topRightBrand) {
+  // 2. Draw Top-Right StruSoft Corporate Logo
+  if (strusoftLogoImageElement && strusoftLogoImageElement.complete) {
+    ctx.save();
+    const logoBoxWidth = 100;
+    const logoBoxHeight = 100;
+    const logoX = targetWidth - logoBoxWidth; // 980
+    const logoY = 0; // 0px top margin
+
+    const imgW = strusoftLogoImageElement.width;
+    const imgH = strusoftLogoImageElement.height;
+    const imgAspect = imgW / imgH;
+
+    let drawW = logoBoxWidth;
+    let drawH = logoBoxHeight;
+
+    if (imgAspect > 1) {
+      drawW = logoBoxWidth;
+      drawH = logoBoxWidth / imgAspect;
+    } else {
+      drawH = logoBoxHeight;
+      drawW = logoBoxHeight * imgAspect;
+    }
+
+    const drawX = logoX + (logoBoxWidth - drawW);
+    const drawY = logoY;
+
+    ctx.drawImage(strusoftLogoImageElement, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  } else if (template.topRightBrand && !template.layoutStyle.startsWith('strusoft')) {
     const brand = template.topRightBrand;
     ctx.save();
     ctx.fillStyle = brand.bgColor;
@@ -57,176 +86,113 @@ export function renderPostToCanvas(
     ctx.restore();
   }
 
-  // 3. Draw Card Overlay if template defines one
-  if (template.cardOverlay) {
-    const card = template.cardOverlay;
-    ctx.save();
-    if (card.shadow) {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 20;
-    }
-
-    ctx.fillStyle = card.bgColor;
-    drawRoundedRectPath(ctx, card.x, card.y, card.width, card.height, card.borderRadius);
-    ctx.fill();
-
-    if (card.borderColor) {
-      ctx.strokeStyle = card.borderColor;
-      ctx.lineWidth = card.borderWidth || 1;
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // 4. Draw Badge Tag (for non-StruSoft standard templates)
-  if (template.badgeText) {
-    ctx.save();
-    let badgeX = 560;
-    let badgeY = 220;
-
-    if (template.layoutStyle === 'quote') {
-      badgeX = 150;
-      badgeY = 160;
-    } else if (template.layoutStyle === 'announcement') {
-      badgeX = 130;
-      badgeY = 120;
-    }
-
-    ctx.font = '600 14px system-ui, -apple-system, sans-serif';
-    const textMetrics = ctx.measureText(template.badgeText);
-    const badgePaddingH = 16;
-    const badgeHeight = 32;
-    const badgeWidth = textMetrics.width + badgePaddingH * 2;
-
-    const accentColor = state.accentColorOverride || template.accentColor;
-
-    ctx.fillStyle = accentColor;
-    drawRoundedRectPath(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 16);
-    ctx.fill();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(template.badgeText, badgeX + badgePaddingH, badgeY + badgeHeight / 2);
-    ctx.restore();
-  }
-
-  // 5. Draw Product Logo Zone (StruSoft pill container)
+  // 5. Draw Product Logo Zone
   if (template.productLogoZone) {
     const zone = template.productLogoZone;
     ctx.save();
 
-    // Draw container rounded pill outline
-    ctx.strokeStyle = template.accentColor || '#0062A8';
-    ctx.lineWidth = 4;
-    ctx.fillStyle = '#FFFFFF';
-    drawRoundedRectPath(ctx, zone.x, zone.y, zone.width, zone.height, zone.borderRadius || 20);
-    ctx.fill();
-    ctx.stroke();
+    if (productLogoImageElement && productLogoImageElement.complete) {
+      const imgAspect = productLogoImageElement.width / productLogoImageElement.height;
+      const zoneAspect = zone.width / zone.height;
 
-    // Draw Product Logo Content
-    const logoText = state.productLogoText || template.defaultProductLogo || 'Product logo';
-    ctx.fillStyle = '#004B87';
-    ctx.font = '700 44px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('+ ' + logoText, zone.x + 30, zone.y + zone.height / 2);
+      let drawW = zone.width;
+      let drawH = zone.height;
+
+      if (imgAspect > zoneAspect) {
+        drawW = zone.width;
+        drawH = zone.width / imgAspect;
+      } else {
+        drawH = zone.height;
+        drawW = drawH * imgAspect;
+      }
+
+      const drawX = zone.x + (zone.width - drawW) / 2;
+      const drawY = zone.y + (zone.height - drawH) / 2;
+
+      ctx.drawImage(productLogoImageElement, drawX, drawY, drawW, drawH);
+    }
 
     ctx.restore();
   }
 
-  // 6. Draw Headline Zone Container & Text
+  // 6. Draw Headline Zone (directly on background image)
   const hlZone = template.headlineZone;
+  const subZone = template.subtitleZone;
+
+  const subtitleEnabled = state.subtitleEnabled !== false;
+  const subtitleRawText = state.subtitleText !== undefined ? state.subtitleText : template.defaultSubtitle;
+  const hasSubtitle = subtitleEnabled && subtitleRawText.trim().length > 0;
+
   const headlineText = state.headlineText || template.defaultHeadline;
 
+  // Calculate expanded headline zone bounds when subtitle is disabled or empty
+  const expandedHeadlineBottom = subZone.y + (subZone.height || 80);
+  const expandedHeadlineHeight = expandedHeadlineBottom - hlZone.y;
+
+  const maxHeadlineFontSize = hasSubtitle ? 60 : 72;
+  const targetHeadlineZoneHeight = hasSubtitle ? (hlZone.height || 80) : expandedHeadlineHeight;
+
   ctx.save();
-  if (template.layoutStyle.startsWith('strusoft')) {
-    // Draw rounded outline container matching wireframe image
-    ctx.strokeStyle = template.accentColor || '#0062A8';
-    ctx.lineWidth = 4;
-    ctx.fillStyle = '#FFFFFF';
-    drawRoundedRectPath(ctx, hlZone.x, hlZone.y, hlZone.width, hlZone.height || 80, 20);
-    ctx.fill();
-    ctx.stroke();
+  ctx.fillStyle = template.layoutStyle.startsWith('strusoft') ? '#1D5998' : (state.textColorOverride || hlZone.color);
+  ctx.textAlign = hlZone.align;
+  ctx.textBaseline = 'top';
 
-    ctx.fillStyle = state.textColorOverride || hlZone.color;
-    ctx.font = '700 32px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    const displayText = headlineText.startsWith('+') ? headlineText : '+ ' + headlineText;
-    ctx.fillText(truncateText(ctx, displayText, hlZone.width - 40), hlZone.x + 30, hlZone.y + (hlZone.height || 80) / 2);
-  } else {
-    ctx.fillStyle = state.textColorOverride || hlZone.color;
-    ctx.textAlign = hlZone.align;
-    ctx.textBaseline = 'top';
+  const fontObj = fitTextInZone(
+    ctx,
+    headlineText,
+    hlZone.width,
+    targetHeadlineZoneHeight,
+    maxHeadlineFontSize,
+    hlZone.minFontSize,
+    hlZone.fontWeight,
+    hlZone.fontFamily || '"Alwyn New", sans-serif',
+    hlZone.lineHeight || 1.2
+  );
 
-    const fontObj = fitTextInZone(
-      ctx,
-      headlineText,
-      hlZone.width,
-      hlZone.maxFontSize,
-      hlZone.minFontSize,
-      hlZone.fontWeight,
-      hlZone.fontFamily
-    );
+  ctx.font = fontObj.fontStr;
+  const lines = fontObj.lines;
+  const lineHeightPx = fontObj.fontSize * (hlZone.lineHeight || 1.2);
 
-    ctx.font = fontObj.fontStr;
-    const lines = fontObj.lines;
-    const lineHeightPx = fontObj.fontSize * (hlZone.lineHeight || 1.25);
-
-    let startX = hlZone.x;
-    if (hlZone.align === 'center') {
-      startX = hlZone.x + hlZone.width / 2;
-    } else if (hlZone.align === 'right') {
-      startX = hlZone.x + hlZone.width;
-    }
-
-    lines.forEach((line, idx) => {
-      ctx.fillText(line, startX, hlZone.y + idx * lineHeightPx);
-    });
+  let startX = hlZone.x;
+  if (hlZone.align === 'center') {
+    startX = hlZone.x + hlZone.width / 2;
+  } else if (hlZone.align === 'right') {
+    startX = hlZone.x + hlZone.width;
   }
+
+  let startY = hlZone.y;
+  if (!hasSubtitle) {
+    const totalTextBlockHeight = lines.length * lineHeightPx;
+    startY = hlZone.y + Math.max(0, (expandedHeadlineHeight - totalTextBlockHeight) / 2);
+  }
+
+  lines.forEach((line, idx) => {
+    ctx.fillText(line, startX, startY + idx * lineHeightPx);
+  });
   ctx.restore();
 
-  // 7. Draw Subtitle Zone Container & Text
-  const subZone = template.subtitleZone;
-  const subtitleText = state.subtitleText || template.defaultSubtitle;
-
-  ctx.save();
-  if (template.layoutStyle.startsWith('strusoft')) {
-    // Draw rounded outline container matching wireframe image
-    ctx.strokeStyle = template.accentColor || '#0062A8';
-    ctx.lineWidth = 4;
-    ctx.fillStyle = '#FFFFFF';
-    drawRoundedRectPath(ctx, subZone.x, subZone.y, subZone.width, subZone.height || 80, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = subZone.color;
-    ctx.font = '600 26px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    const displayText = subtitleText.startsWith('+') ? subtitleText : '+ ' + subtitleText;
-    ctx.fillText(truncateText(ctx, displayText, subZone.width - 40), subZone.x + 30, subZone.y + (subZone.height || 80) / 2);
-  } else {
-    ctx.fillStyle = subZone.color;
+  // 7. Draw Subtitle Zone ONLY if hasSubtitle is true
+  if (hasSubtitle) {
+    ctx.save();
+    ctx.fillStyle = template.layoutStyle.startsWith('strusoft') ? '#1D5998' : subZone.color;
     ctx.textAlign = subZone.align;
     ctx.textBaseline = 'top';
 
     const subFontObj = fitTextInZone(
       ctx,
-      subtitleText,
+      subtitleRawText,
       subZone.width,
-      subZone.maxFontSize,
+      subZone.height || 80,
+      Math.min(subZone.maxFontSize, 35),
       subZone.minFontSize,
       subZone.fontWeight,
-      subZone.fontFamily
+      subZone.fontFamily || '"Alwyn New", sans-serif',
+      subZone.lineHeight || 1.3
     );
 
     ctx.font = subFontObj.fontStr;
     const subLines = subFontObj.lines;
-    const subLineHeightPx = subFontObj.fontSize * 1.35;
+    const subLineHeightPx = subFontObj.fontSize * (subZone.lineHeight || 1.3);
 
     let subStartX = subZone.x;
     if (subZone.align === 'center') {
@@ -238,8 +204,8 @@ export function renderPostToCanvas(
     subLines.forEach((line, idx) => {
       ctx.fillText(line, subStartX, subZone.y + idx * subLineHeightPx);
     });
+    ctx.restore();
   }
-  ctx.restore();
 
   // 8. Draw Secondary Image Slot (if defined, e.g. Template 2 Left Image Slot)
   if (template.secondaryImageSlot) {
@@ -269,36 +235,75 @@ export function renderPostToCanvas(
     }
     ctx.restore();
 
-    // Border outline
-    ctx.save();
-    ctx.strokeStyle = template.accentColor || '#0062A8';
-    ctx.lineWidth = secSlot.borderWidth || 4;
-    drawRoundedRectPath(ctx, secSlot.x, secSlot.y, secSlot.width, secSlot.height, secSlot.borderRadius || 24);
-    ctx.stroke();
-    ctx.restore();
+    // Border outline for secondary slot if defined
+    if (secSlot.borderWidth && !template.layoutStyle.startsWith('strusoft')) {
+      ctx.save();
+      ctx.strokeStyle = template.accentColor || '#0062A8';
+      ctx.lineWidth = secSlot.borderWidth || 4;
+      drawRoundedRectPath(ctx, secSlot.x, secSlot.y, secSlot.width, secSlot.height, secSlot.borderRadius || 24);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // 9. Draw Main Image Slot
   const slot = template.imageSlot;
-  ctx.save();
+  const slotW = targetWidth - slot.x; // extends all the way to right canvas edge (1080)
+  const slotH = slot.height;
 
-  // Create clipping mask path for main slot
-  ctx.beginPath();
-  if (slot.shape === 'circle') {
-    const radius = slot.width / 2;
-    ctx.arc(slot.x + radius, slot.y + radius, radius, 0, Math.PI * 2);
-  } else {
-    drawRoundedRectPath(ctx, slot.x, slot.y, slot.width, slot.height, slot.borderRadius || 24);
-  }
-  ctx.clip();
+  const createMainSlotPath = () => {
+    ctx.beginPath();
+    if (slot.shape === 'circle') {
+      const radius = slot.width / 2;
+      ctx.arc(slot.x + radius, slot.y + radius, radius, 0, Math.PI * 2);
+    } else if (template.layoutStyle.startsWith('strusoft')) {
+      // Custom clip path: Top-left: 30px, Bottom-left: 30px, Top-right: 0px, Bottom-right: 0px
+      const x = slot.x;
+      const y = slot.y;
+      const w = slotW;
+      const h = slotH;
+      const r = 30;
 
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fill();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath();
+    } else {
+      drawRoundedRectPath(ctx, slot.x, slot.y, slot.width, slot.height, slot.borderRadius || 24);
+    }
+  };
 
   if (slotImageElement && slotImageElement.complete) {
-    drawFitImageInSlot(ctx, slotImageElement, slot, state.imageScale || 1.0, state.imagePanX || 0, state.imagePanY || 0);
+    const renderSlot = template.layoutStyle.startsWith('strusoft')
+      ? { x: slot.x, y: slot.y, width: slotW, height: slotH }
+      : slot;
+
+    // 1. Draw centered drop shadow for image
+    ctx.save();
+    createMainSlotPath();
+    ctx.shadowColor = 'rgba(0,0,0,0.18)';
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    ctx.restore();
+
+    // 2. Draw clipped image over shadow fill
+    ctx.save();
+    createMainSlotPath();
+    ctx.clip();
+    drawFitImageInSlot(ctx, slotImageElement, renderSlot, state.imageScale || 1.0, state.imagePanX || 0, state.imagePanY || 0);
+    ctx.restore();
   } else {
-    // Wireframe placeholder matching template images "+ Image" or "+ Main Image"
+    // Wireframe placeholder when no image is selected
+    ctx.save();
+    createMainSlotPath();
+    ctx.clip();
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(slot.x, slot.y, slot.width, slot.height);
 
@@ -306,12 +311,12 @@ export function renderPostToCanvas(
     ctx.font = '700 48px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(slot.label, slot.x + slot.width / 2, slot.y + slot.height / 2);
+    ctx.fillText(slot.label || '+ Image', slot.x + slot.width / 2, slot.y + slot.height / 2);
+    ctx.restore();
   }
-  ctx.restore();
 
-  // Draw Main Slot Border
-  if (slot.borderWidth) {
+  // Draw Main Slot Border (only for non-strusoft templates)
+  if (slot.borderWidth && !template.layoutStyle.startsWith('strusoft')) {
     ctx.save();
     ctx.beginPath();
     if (slot.shape === 'circle') {
@@ -326,18 +331,7 @@ export function renderPostToCanvas(
     ctx.restore();
   }
 
-  // 10. Draw Bottom-Left "+ Background" Label for StruSoft templates
-  if (template.layoutStyle.startsWith('strusoft')) {
-    ctx.save();
-    ctx.fillStyle = '#0062A8';
-    ctx.font = '700 44px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText('+ Background', 30, targetHeight - 35);
-    ctx.restore();
-  }
-
-  // 11. Draw Watermark / Brand Name (optional overlay)
+  // 10. Draw Watermark / Brand Name (optional overlay)
   if (state.showBrandWatermark && !template.layoutStyle.startsWith('strusoft')) {
     ctx.save();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
@@ -438,10 +432,12 @@ function fitTextInZone(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
+  maxHeight: number,
   maxSize: number,
   minSize: number,
   weight: string,
-  family: string
+  family: string,
+  lineHeightRatio: number = 1.2
 ): { lines: string[]; fontSize: number; fontStr: string } {
   let currentSize = maxSize;
 
@@ -449,30 +445,47 @@ function fitTextInZone(
     const fontStr = `${weight} ${currentSize}px ${family}`;
     ctx.font = fontStr;
 
-    const words = text.split(' ');
+    const words = text.split(/\s+/).filter(Boolean);
     const lines: string[] = [];
-    let currentLine = words[0] || '';
+    let currentLine = '';
+    let hasHorizontalOverflow = false;
 
-    for (let i = 1; i < words.length; i++) {
+    for (let i = 0; i < words.length; i++) {
       const word = words[i];
-      const testLine = currentLine + ' ' + word;
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width <= maxWidth) {
-        currentLine = testLine;
-      } else {
-        lines.push(currentLine);
+      if (ctx.measureText(word).width > maxWidth) {
+        hasHorizontalOverflow = true;
+        break;
+      }
+
+      if (!currentLine) {
         currentLine = word;
+      } else {
+        const testLine = currentLine + ' ' + word;
+        if (ctx.measureText(testLine).width <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
       }
     }
-    if (currentLine) {
+    if (currentLine && !hasHorizontalOverflow) {
       lines.push(currentLine);
     }
 
-    if (lines.length <= 4 || currentSize === minSize) {
+    const lineHeightPx = currentSize * lineHeightRatio;
+    const totalHeight = lines.length * lineHeightPx;
+    const hasVerticalOverflow = totalHeight > maxHeight;
+
+    if (!hasHorizontalOverflow && !hasVerticalOverflow && lines.length > 0) {
       return { lines, fontSize: currentSize, fontStr };
     }
 
-    currentSize -= 2;
+    if (currentSize === minSize) {
+      return { lines: lines.length > 0 ? lines : [text], fontSize: minSize, fontStr };
+    }
+
+    currentSize -= 1;
   }
 
   const fontStr = `${weight} ${minSize}px ${family}`;

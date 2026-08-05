@@ -1,7 +1,7 @@
 import React from 'react';
 import { TemplateConfig, PostState } from '../../types';
 import { TEMPLATES } from '../../data/templates';
-import { Layout, Check, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Layout, Check } from 'lucide-react';
 
 interface StepChooseTemplateProps {
   state: PostState;
@@ -64,19 +64,6 @@ export const StepChooseTemplate: React.FC<StepChooseTemplateProps> = ({
                     alt="StruSoft Dual Feature Wireframe"
                     className="w-full aspect-square object-contain rounded border border-slate-100"
                   />
-                )}
-
-                {tmpl.layoutStyle === 'spotlight' && (
-                  <div className="w-full aspect-square bg-slate-900 rounded p-2 flex items-center gap-2 border border-slate-700">
-                    <div className="w-12 h-16 rounded bg-sky-500/20 border border-sky-400 text-sky-300 text-[8px] font-bold flex items-center justify-center">
-                      Portrait
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="h-2 w-16 bg-sky-400 rounded" />
-                      <div className="h-3 w-28 bg-white/80 rounded" />
-                      <div className="h-2 w-20 bg-slate-400 rounded" />
-                    </div>
-                  </div>
                 )}
               </div>
 

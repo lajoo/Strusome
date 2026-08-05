@@ -21,9 +21,8 @@ export const AdminGuideModal: React.FC<AdminGuideModalProps> = ({ isOpen, onClos
   const folderStructureSnippet = `
 firebase-storage-bucket/
 ├── templates/
-│   ├── template-spotlight.json
-│   ├── template-quote.json
-│   └── template-announcement.json
+│   ├── template-1.json
+│   └── template-2.json
 ├── backgrounds/
 │   ├── bg-minimal-slate.svg
 │   ├── bg-grad-midnight-aurora.svg
@@ -40,7 +39,7 @@ firebase-storage-bucket/
   "tagline": "Sleek banner for upcoming live events and podcasts",
   "description": "Top-aligned event image slot with dark backdrop and gold badge.",
   "category": "Events",
-  "layoutStyle": "spotlight",
+  "layoutStyle": "strusoft-single",
   "badgeText": "LIVE WEBINAR 🎙️",
   "accentColor": "#F59E0B",
   "defaultHeadline": "Join Us Live: Building AI Agents at Scale",

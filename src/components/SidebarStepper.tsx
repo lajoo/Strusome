@@ -1,46 +1,53 @@
 import React from 'react';
 import { StepId, StepInfo } from '../types';
-import { Layout, Image as ImageIcon, User, Type, MessageSquare, Download, CheckCircle2, ChevronRight, BookOpen, LogOut } from 'lucide-react';
+import { Layout, Image as ImageIcon, User, Type, MessageSquare, Download, CheckCircle2, ChevronRight, BookOpen, LogOut, Box } from 'lucide-react';
 
 export const STEPS: StepInfo[] = [
   {
     id: 'template',
     number: 1,
     title: 'Choose Template',
-    shortDesc: '1 of 3 predefined layouts',
-    instruction: 'Select a layout structure (Spotlight, Quote, or Announcement).'
+    shortDesc: '2 predefined layouts',
+    instruction: 'Select a layout structure (Single Focus or Dual Feature).'
+  },
+  {
+    id: 'productLogo',
+    number: 2,
+    title: 'Choose Product Logo',
+    shortDesc: 'Product brand asset',
+    instruction: 'Pick a product logo asset to display on the template.'
   },
   {
     id: 'background',
-    number: 2,
+    number: 3,
     title: 'Choose Background',
-    shortDesc: '20+ background library',
+    shortDesc: '6 background library',
     instruction: 'Pick a high-res background from Gradients, Minimal, or Dark themes.'
   },
   {
     id: 'image',
-    number: 3,
+    number: 4,
     title: 'Add Image',
-    shortDesc: 'Pre-stored team photos',
+    shortDesc: 'Add your focus point image',
     instruction: 'Select an executive portrait or stock visual from team library.'
   },
   {
     id: 'headline',
-    number: 4,
+    number: 5,
     title: 'Edit Headline',
-    shortDesc: 'Enforced char limits',
+    shortDesc: 'Add your headline',
     instruction: 'Write a punchy headline post hook formatted to template specs.'
   },
   {
     id: 'subtitle',
-    number: 5,
+    number: 6,
     title: 'Edit Subtitle',
-    shortDesc: 'Author name & title',
+    shortDesc: 'Add your description',
     instruction: 'Add author name, company role, or secondary description.'
   },
   {
     id: 'download',
-    number: 6,
+    number: 7,
     title: 'Download Post',
     shortDesc: '1080x1080 high-res PNG',
     instruction: 'Export instant high-resolution 1080x1080 graphic for LinkedIn.'
@@ -65,6 +72,7 @@ export const SidebarStepper: React.FC<SidebarStepperProps> = ({
   const getStepIcon = (id: StepId) => {
     switch (id) {
       case 'template': return Layout;
+      case 'productLogo': return Box;
       case 'background': return ImageIcon;
       case 'image': return User;
       case 'headline': return Type;

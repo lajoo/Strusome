@@ -9,7 +9,9 @@ import { SidebarStepper, STEPS } from './components/SidebarStepper';
 import { CanvasPreview, CanvasPreviewHandle } from './components/CanvasPreview';
 
 import { StepChooseTemplate } from './components/steps/StepChooseTemplate';
+import { StepChooseProductLogo } from './components/steps/StepChooseProductLogo';
 import { StepChooseBackground } from './components/steps/StepChooseBackground';
+import { ProductLogo } from './data/productLogos';
 import { StepAddImage } from './components/steps/StepAddImage';
 import { StepEditHeadline } from './components/steps/StepEditHeadline';
 import { StepEditSubtitle } from './components/steps/StepEditSubtitle';
@@ -19,19 +21,10 @@ import { AdminGuideModal } from './components/AdminGuideModal';
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Custom user uploaded backgrounds and photos (persisted in localStorage)
+  // Custom user uploaded backgrounds (persisted in localStorage)
   const [customBackgrounds, setCustomBackgrounds] = useState<BackgroundItem[]>(() => {
     try {
       const saved = localStorage.getItem('linkedin_post_custom_backgrounds');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [customImages, setCustomImages] = useState<LibraryImage[]>(() => {
-    try {
-      const saved = localStorage.getItem('linkedin_post_custom_images');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -46,13 +39,15 @@ export default function App() {
     }
   }, [customBackgrounds]);
 
+  // Clean up any stale image persistence keys from localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('linkedin_post_custom_images', JSON.stringify(customImages));
+      localStorage.removeItem('linkedin_post_custom_images');
+      localStorage.removeItem('linkedin_post_selected_image');
     } catch (e) {
-      console.error('Failed to save custom images to localStorage', e);
+      // ignore
     }
-  }, [customImages]);
+  }, []);
 
   // Check existing session on mount
   useEffect(() => {
@@ -61,7 +56,7 @@ export default function App() {
       setIsAuthenticated(true);
     }
 
-    // Fetch server-persisted uploaded images
+    // Fetch server-persisted uploaded backgrounds
     fetch('/api/backgrounds')
       .then((res) => res.json())
       .then((serverBgs) => {
@@ -74,19 +69,6 @@ export default function App() {
         }
       })
       .catch((err) => console.error('Failed to load server backgrounds:', err));
-
-    fetch('/api/images')
-      .then((res) => res.json())
-      .then((serverImgs) => {
-        if (Array.isArray(serverImgs) && serverImgs.length > 0) {
-          setCustomImages((prev) => {
-            const urls = new Set(prev.map((item) => item.url));
-            const newItems = serverImgs.filter((item: LibraryImage) => !urls.has(item.url));
-            return [...prev, ...newItems];
-          });
-        }
-      })
-      .catch((err) => console.error('Failed to load server images:', err));
   }, []);
 
   const [currentStepId, setCurrentStepId] = useState<StepId>('template');
@@ -99,27 +81,51 @@ export default function App() {
   const initialTemplate = TEMPLATES[0];
   const [postState, setPostState] = useState<PostState>({
     selectedTemplateId: initialTemplate.id,
+    selectedProductLogo: null,
     selectedBackgroundId: BACKGROUNDS[0]?.id || '',
-    selectedImageId: LIBRARY_IMAGES[0]?.id || '',
-    secondaryImageId: LIBRARY_IMAGES[1]?.id || null,
+    selectedImageId: '',
+    secondaryImageId: null,
     imageScale: 1.0,
     imagePanX: 0,
     imagePanY: 0,
     headlineText: initialTemplate.defaultHeadline,
     subtitleText: initialTemplate.defaultSubtitle,
+    subtitleEnabled: true,
     productLogoText: initialTemplate.defaultProductLogo || 'FEM-Design',
     showSafeArea: false,
     showBrandWatermark: false,
     brandNameText: 'STRUSOFT • LINKEDIN TEAM'
   });
 
+  // Session-only uploaded image state
+  const [uploadedImage, setUploadedImage] = useState<{ file: File; url: string; name: string } | null>(null);
+
+  const handleUploadImage = (file: File) => {
+    if (uploadedImage?.url) {
+      URL.revokeObjectURL(uploadedImage.url);
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setUploadedImage({ file, url: objectUrl, name: file.name });
+    setPostState(prev => ({ ...prev, selectedImageId: 'custom-upload' }));
+    markStepComplete('image');
+  };
+
+  const handleRemoveImage = () => {
+    if (uploadedImage?.url) {
+      URL.revokeObjectURL(uploadedImage.url);
+    }
+    setUploadedImage(null);
+    setPostState(prev => ({ ...prev, selectedImageId: '', secondaryImageId: null }));
+  };
+
   const allBackgrounds = [...customBackgrounds, ...BACKGROUNDS];
-  const allImages = [...customImages, ...LIBRARY_IMAGES];
 
   const activeTemplate = TEMPLATES.find(t => t.id === postState.selectedTemplateId) || TEMPLATES[0];
   const activeBackground = allBackgrounds.find(b => b.id === postState.selectedBackgroundId) || allBackgrounds[0];
-  const activeImage = allImages.find(i => i.id === postState.selectedImageId);
-  const activeSecondaryImage = allImages.find(i => i.id === postState.secondaryImageId);
+  const activeImage: LibraryImage | undefined = uploadedImage
+    ? { id: 'custom-upload', name: uploadedImage.name, category: 'Uploaded', url: uploadedImage.url }
+    : undefined;
+  const activeSecondaryImage = undefined;
 
   const handleAddCustomBackground = (newBg: BackgroundItem) => {
     setCustomBackgrounds(prev => [newBg, ...prev]);
@@ -127,23 +133,31 @@ export default function App() {
     markStepComplete('background');
   };
 
-  const handleAddCustomImage = (newImg: LibraryImage) => {
-    setCustomImages(prev => [newImg, ...prev]);
-    setPostState(prev => ({ ...prev, selectedImageId: newImg.id }));
-    markStepComplete('image');
+  const handleSelectProductLogo = (logo: ProductLogo) => {
+    setPostState(prev => ({ ...prev, selectedProductLogo: logo }));
+    markStepComplete('productLogo');
   };
 
-  // Handle template switch (resets default headlines if user hasn't heavily modified them)
+  // Handle template switch (resets image selections to null)
   const handleSelectTemplate = (templateId: string) => {
     const newTmpl = TEMPLATES.find(t => t.id === templateId);
     if (!newTmpl) return;
+
+    if (uploadedImage?.url) {
+      URL.revokeObjectURL(uploadedImage.url);
+    }
+    setUploadedImage(null);
 
     setPostState(prev => ({
       ...prev,
       selectedTemplateId: templateId,
       headlineText: newTmpl.defaultHeadline,
       subtitleText: newTmpl.defaultSubtitle,
-      productLogoText: newTmpl.defaultProductLogo || prev.productLogoText || 'FEM-Design'
+      subtitleEnabled: true,
+      productLogoText: newTmpl.defaultProductLogo || prev.productLogoText || 'FEM-Design',
+      selectedProductLogo: newTmpl.productLogoZone ? prev.selectedProductLogo : null,
+      selectedImageId: '',
+      secondaryImageId: null
     }));
     markStepComplete('template');
   };
@@ -153,20 +167,29 @@ export default function App() {
     markStepComplete('background');
   };
 
-  const handleSelectImage = (imageId: string) => {
-    setPostState(prev => ({ ...prev, selectedImageId: imageId }));
-    markStepComplete('image');
-  };
-
   const markStepComplete = (stepId: StepId) => {
     setCompletedSteps(prev => (prev.includes(stepId) ? prev : [...prev, stepId]));
+  };
+
+  const handleSelectStep = (stepId: StepId) => {
+    const targetIndex = STEPS.findIndex(s => s.id === stepId);
+    if (targetIndex >= 2 && !postState.selectedProductLogo) {
+      setCurrentStepId('productLogo');
+      return;
+    }
+    setCurrentStepId(stepId);
   };
 
   const handleNextStep = () => {
     markStepComplete(currentStepId);
     const currentIndex = STEPS.findIndex(s => s.id === currentStepId);
     if (currentIndex < STEPS.length - 1) {
-      setCurrentStepId(STEPS[currentIndex + 1].id);
+      const nextStepId = STEPS[currentIndex + 1].id;
+      if (currentIndex + 1 >= 2 && !postState.selectedProductLogo) {
+        setCurrentStepId('productLogo');
+      } else {
+        setCurrentStepId(nextStepId);
+      }
     }
   };
 
@@ -184,7 +207,7 @@ export default function App() {
       {/* 1. Left Vertical Stepper Sidebar */}
       <SidebarStepper
         currentStepId={currentStepId}
-        onSelectStep={(stepId) => setCurrentStepId(stepId)}
+        onSelectStep={handleSelectStep}
         completedSteps={completedSteps}
         onOpenAdminGuide={() => setIsAdminGuideOpen(true)}
         onLogout={handleLogout}
@@ -201,6 +224,14 @@ export default function App() {
             />
           )}
 
+          {currentStepId === 'productLogo' && (
+            <StepChooseProductLogo
+              state={postState}
+              onSelectProductLogo={handleSelectProductLogo}
+              onNextStep={handleNextStep}
+            />
+          )}
+
           {currentStepId === 'background' && (
             <StepChooseBackground
               state={postState}
@@ -213,9 +244,9 @@ export default function App() {
             <StepAddImage
               state={postState}
               template={activeTemplate}
-              customImages={customImages}
-              onAddCustomImage={handleAddCustomImage}
-              onSelectImage={handleSelectImage}
+              uploadedImage={uploadedImage}
+              onUploadImage={handleUploadImage}
+              onRemoveImage={handleRemoveImage}
               onUpdateState={setPostState}
               onNextStep={handleNextStep}
             />
@@ -260,7 +291,7 @@ export default function App() {
         background={activeBackground}
         libraryImage={activeImage}
         secondaryImage={activeSecondaryImage}
-        onSelectStep={(stepId) => setCurrentStepId(stepId)}
+        onSelectStep={handleSelectStep}
         onUpdateState={setPostState}
       />
 
