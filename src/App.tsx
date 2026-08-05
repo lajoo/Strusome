@@ -280,6 +280,7 @@ export default function App() {
   };
 
   const handleSelectBackground = (backgroundId: string) => {
+    console.log('[App] handleSelectBackground called with backgroundId:', backgroundId);
     setPostState((previousState) => ({
       ...previousState,
       selectedBackgroundId: backgroundId

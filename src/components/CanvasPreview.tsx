@@ -78,15 +78,44 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
 
   // Load Background image element
   useEffect(() => {
+    let active = true;
+    console.log('[CanvasPreview] Background prop changed:', {
+      selectedBackgroundId: state.selectedBackgroundId,
+      backgroundObject: background,
+      resolvedImageUrl: background?.url
+    });
+
     if (!background?.url) {
       setBgImgEl(null);
       return;
     }
+    const path = background.url;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = background.url;
-    img.onload = () => setBgImgEl(img);
-  }, [background?.url]);
+    if (!path.startsWith('blob:') && (path.startsWith('http://') || path.startsWith('https://'))) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.onload = () => {
+      if (active) {
+        console.log('[CanvasPreview] Background image loaded successfully:', path, 'naturalWidth:', img.naturalWidth, 'naturalHeight:', img.naturalHeight);
+        setBgImgEl(img);
+      }
+    };
+    img.onerror = (err) => {
+      if (active) {
+        console.error('[CanvasPreview] Failed to load background image:', path, err);
+        setBgImgEl(null);
+      }
+    };
+    img.src = path;
+    if (img.complete && img.naturalWidth !== 0 && active) {
+      console.log('[CanvasPreview] Background image complete synchronously:', path, 'naturalWidth:', img.naturalWidth, 'naturalHeight:', img.naturalHeight);
+      setBgImgEl(img);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [background?.url, state.selectedBackgroundId]);
 
   // Load Main Slot image element
   useEffect(() => {
@@ -191,6 +220,19 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
           img.onerror = () => resolve(null);
         });
       }
+      let exportBgImg = bgImgEl;
+      if (background?.url && (!exportBgImg || !exportBgImg.complete)) {
+        exportBgImg = await new Promise<HTMLImageElement | null>((resolve) => {
+          const img = new Image();
+          if (!background.url.startsWith('blob:') && (background.url.startsWith('http://') || background.url.startsWith('https://'))) {
+            img.crossOrigin = 'anonymous';
+          }
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = background.url;
+          if (img.complete && img.naturalWidth !== 0) resolve(img);
+        });
+      }
       return new Promise<Blob | null>((resolve) => {
         const offscreenCanvas = document.createElement('canvas');
         renderPostToCanvas(
@@ -199,7 +241,7 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
           template,
           background,
           libraryImage,
-          bgImgEl,
+          exportBgImg,
           exportSlotImg,
           exportSecSlotImg,
           productLogoImgEl,

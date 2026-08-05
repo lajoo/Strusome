@@ -26,7 +26,13 @@ export function renderPostToCanvas(
   ctx.clearRect(0, 0, targetWidth, targetHeight);
 
   // 1. Draw Background
-  if (bgImageElement && bgImageElement.complete) {
+  console.log('[canvasRenderer] Drawing background:', {
+    bgItemId: bgItem?.id,
+    bgItemUrl: bgItem?.url,
+    bgImageElementSrc: bgImageElement?.src,
+    complete: bgImageElement?.complete
+  });
+  if (bgImageElement && bgImageElement.complete && bgImageElement.naturalWidth !== 0) {
     ctx.drawImage(bgImageElement, 0, 0, targetWidth, targetHeight);
   } else {
     // Default fallback background for StruSoft wireframe templates is crisp clean white
