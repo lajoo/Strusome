@@ -61,6 +61,14 @@ export default function App() {
     selectedTemplateId: initialTemplate.id,
     selectedProductLogo: null,
     selectedBackgroundId: BACKGROUNDS[0]?.id || '',
+    selectedImage1Id: '',
+    selectedImage2Id: null,
+    image1Scale: 1.0,
+    image1PanX: 0,
+    image1PanY: 0,
+    image2Scale: 1.0,
+    image2PanX: 0,
+    image2PanY: 0,
     selectedImageId: '',
     secondaryImageId: null,
     imageScale: 1.0,
@@ -76,8 +84,14 @@ export default function App() {
     brandNameText: 'STRUSOFT • LINKEDIN TEAM'
   });
 
-  // Current-session custom image only.
-  const [uploadedImage, setUploadedImage] = useState<{
+  // Uploaded images for Image 1 and Image 2
+  const [uploadedImage1, setUploadedImage1] = useState<{
+    file: File;
+    url: string;
+    name: string;
+  } | null>(null);
+
+  const [uploadedImage2, setUploadedImage2] = useState<{
     file: File;
     url: string;
     name: string;
@@ -91,14 +105,14 @@ export default function App() {
     );
   };
 
-  const handleUploadImage = (file: File) => {
-    if (uploadedImage?.url) {
-      URL.revokeObjectURL(uploadedImage.url);
+  const handleUploadImage1 = (file: File) => {
+    if (uploadedImage1?.url) {
+      URL.revokeObjectURL(uploadedImage1.url);
     }
 
     const objectUrl = URL.createObjectURL(file);
 
-    setUploadedImage({
+    setUploadedImage1({
       file,
       url: objectUrl,
       name: file.name
@@ -106,22 +120,59 @@ export default function App() {
 
     setPostState((previousState) => ({
       ...previousState,
-      selectedImageId: 'custom-upload'
+      selectedImage1Id: 'custom-upload-1',
+      selectedImageId: 'custom-upload-1'
     }));
 
     markStepComplete('image');
   };
 
-  const handleRemoveImage = () => {
-    if (uploadedImage?.url) {
-      URL.revokeObjectURL(uploadedImage.url);
+  const handleRemoveImage1 = () => {
+    if (uploadedImage1?.url) {
+      URL.revokeObjectURL(uploadedImage1.url);
     }
 
-    setUploadedImage(null);
+    setUploadedImage1(null);
 
     setPostState((previousState) => ({
       ...previousState,
-      selectedImageId: '',
+      selectedImage1Id: '',
+      selectedImageId: ''
+    }));
+  };
+
+  const handleUploadImage2 = (file: File) => {
+    if (uploadedImage2?.url) {
+      URL.revokeObjectURL(uploadedImage2.url);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+
+    setUploadedImage2({
+      file,
+      url: objectUrl,
+      name: file.name
+    });
+
+    setPostState((previousState) => ({
+      ...previousState,
+      selectedImage2Id: 'custom-upload-2',
+      secondaryImageId: 'custom-upload-2'
+    }));
+
+    markStepComplete('image');
+  };
+
+  const handleRemoveImage2 = () => {
+    if (uploadedImage2?.url) {
+      URL.revokeObjectURL(uploadedImage2.url);
+    }
+
+    setUploadedImage2(null);
+
+    setPostState((previousState) => ({
+      ...previousState,
+      selectedImage2Id: null,
       secondaryImageId: null
     }));
   };
@@ -138,16 +189,36 @@ export default function App() {
         background.id === postState.selectedBackgroundId
     ) || BACKGROUNDS[0];
 
-  const activeImage: LibraryImage | undefined = uploadedImage
-    ? {
-        id: 'custom-upload',
-        name: uploadedImage.name,
-        category: 'Uploaded',
-        url: uploadedImage.url
-      }
-    : undefined;
+  const isDualLayout = Boolean(activeTemplate.secondaryImageSlot);
 
-  const activeSecondaryImage: LibraryImage | undefined = undefined;
+  const activeImage: LibraryImage | undefined = isDualLayout
+    ? (uploadedImage2
+        ? {
+            id: 'custom-upload-2',
+            name: uploadedImage2.name,
+            category: 'Uploaded',
+            url: uploadedImage2.url
+          }
+        : undefined)
+    : (uploadedImage1
+        ? {
+            id: 'custom-upload-1',
+            name: uploadedImage1.name,
+            category: 'Uploaded',
+            url: uploadedImage1.url
+          }
+        : undefined);
+
+  const activeSecondaryImage: LibraryImage | undefined = isDualLayout
+    ? (uploadedImage1
+        ? {
+            id: 'custom-upload-1',
+            name: uploadedImage1.name,
+            category: 'Uploaded',
+            url: uploadedImage1.url
+          }
+        : undefined)
+    : undefined;
 
   const handleSelectProductLogo = (logo: ProductLogo) => {
     setPostState((previousState) => ({
@@ -167,11 +238,15 @@ export default function App() {
       return;
     }
 
-    if (uploadedImage?.url) {
-      URL.revokeObjectURL(uploadedImage.url);
+    if (uploadedImage1?.url) {
+      URL.revokeObjectURL(uploadedImage1.url);
+    }
+    if (uploadedImage2?.url) {
+      URL.revokeObjectURL(uploadedImage2.url);
     }
 
-    setUploadedImage(null);
+    setUploadedImage1(null);
+    setUploadedImage2(null);
 
     setPostState((previousState) => ({
       ...previousState,
@@ -186,8 +261,19 @@ export default function App() {
       selectedProductLogo: newTemplate.productLogoZone
         ? previousState.selectedProductLogo
         : null,
+      selectedImage1Id: '',
+      selectedImage2Id: null,
       selectedImageId: '',
-      secondaryImageId: null
+      secondaryImageId: null,
+      image1Scale: 1.0,
+      image1PanX: 0,
+      image1PanY: 0,
+      image2Scale: 1.0,
+      image2PanX: 0,
+      image2PanY: 0,
+      imageScale: 1.0,
+      imagePanX: 0,
+      imagePanY: 0
     }));
 
     markStepComplete('template');
@@ -295,9 +381,15 @@ export default function App() {
             <StepAddImage
               state={postState}
               template={activeTemplate}
-              uploadedImage={uploadedImage}
-              onUploadImage={handleUploadImage}
-              onRemoveImage={handleRemoveImage}
+              uploadedImage={uploadedImage1}
+              uploadedImage1={uploadedImage1}
+              uploadedImage2={uploadedImage2}
+              onUploadImage={handleUploadImage1}
+              onUploadImage1={handleUploadImage1}
+              onUploadImage2={handleUploadImage2}
+              onRemoveImage={handleRemoveImage1}
+              onRemoveImage1={handleRemoveImage1}
+              onRemoveImage2={handleRemoveImage2}
               onUpdateState={setPostState}
               onNextStep={handleNextStep}
             />

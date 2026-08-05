@@ -115,10 +115,14 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
       setSecSlotImgEl(null);
       return;
     }
+    const path = secondaryImage.url;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = secondaryImage.url;
+    if (!path.startsWith('blob:')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.src = path;
     img.onload = () => setSecSlotImgEl(img);
+    img.onerror = () => setSecSlotImgEl(null);
   }, [secondaryImage?.url]);
 
   // Load Product Logo image element
@@ -167,8 +171,22 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
       if (libraryImage?.url && (!exportSlotImg || !exportSlotImg.complete)) {
         exportSlotImg = await new Promise<HTMLImageElement | null>((resolve) => {
           const img = new Image();
-          img.crossOrigin = 'anonymous';
+          if (!libraryImage.url.startsWith('blob:')) {
+            img.crossOrigin = 'anonymous';
+          }
           img.src = libraryImage.url;
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+        });
+      }
+      let exportSecSlotImg = secSlotImgEl;
+      if (secondaryImage?.url && (!exportSecSlotImg || !exportSecSlotImg.complete)) {
+        exportSecSlotImg = await new Promise<HTMLImageElement | null>((resolve) => {
+          const img = new Image();
+          if (!secondaryImage.url.startsWith('blob:')) {
+            img.crossOrigin = 'anonymous';
+          }
+          img.src = secondaryImage.url;
           img.onload = () => resolve(img);
           img.onerror = () => resolve(null);
         });
@@ -183,7 +201,7 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
           libraryImage,
           bgImgEl,
           exportSlotImg,
-          secSlotImgEl,
+          exportSecSlotImg,
           productLogoImgEl,
           strusoftLogoImgEl,
           { isExport: true }
@@ -205,10 +223,17 @@ export const CanvasPreview = forwardRef<CanvasPreviewHandle, CanvasPreviewProps>
     const y = (e.clientY - rect.top) * scale;
 
     const slot = template.imageSlot;
+    const secSlot = template.secondaryImageSlot;
     const hl = template.headlineZone;
     const sub = template.subtitleZone;
 
-    // Check click inside Image slot
+    // Check click inside Secondary Image slot (Left slot in Template 2)
+    if (secSlot && x >= secSlot.x && x <= secSlot.x + secSlot.width && y >= secSlot.y && y <= secSlot.y + secSlot.height) {
+      onSelectStep('image');
+      return;
+    }
+
+    // Check click inside Main Image slot
     if (x >= slot.x && x <= slot.x + slot.width && y >= slot.y && y <= slot.y + slot.height) {
       onSelectStep('image');
       return;

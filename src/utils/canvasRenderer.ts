@@ -221,7 +221,10 @@ export function renderPostToCanvas(
     ctx.fill();
 
     if (secondaryImageElement && secondaryImageElement.complete) {
-      drawFitImageInSlot(ctx, secondaryImageElement, secSlot, 1.0, 0, 0);
+      const img1Scale = state.image1Scale ?? state.imageScale ?? 1.0;
+      const img1PanX = state.image1PanX ?? state.imagePanX ?? 0;
+      const img1PanY = state.image1PanY ?? state.imagePanY ?? 0;
+      drawFitImageInSlot(ctx, secondaryImageElement, secSlot, img1Scale, img1PanX, img1PanY);
     } else {
       // Wireframe placeholder matching image 2 "+ Image"
       ctx.fillStyle = '#FFFFFF';
@@ -297,7 +300,17 @@ export function renderPostToCanvas(
     ctx.save();
     createMainSlotPath();
     ctx.clip();
-    drawFitImageInSlot(ctx, slotImageElement, renderSlot, state.imageScale || 1.0, state.imagePanX || 0, state.imagePanY || 0);
+    const isDual = Boolean(template.secondaryImageSlot);
+    const slotScale = isDual
+      ? (state.image2Scale ?? 1.0)
+      : (state.image1Scale ?? state.imageScale ?? 1.0);
+    const slotPanX = isDual
+      ? (state.image2PanX ?? 0)
+      : (state.image1PanX ?? state.imagePanX ?? 0);
+    const slotPanY = isDual
+      ? (state.image2PanY ?? 0)
+      : (state.image1PanY ?? state.imagePanY ?? 0);
+    drawFitImageInSlot(ctx, slotImageElement, renderSlot, slotScale, slotPanX, slotPanY);
     ctx.restore();
   } else {
     // Wireframe placeholder when no image is selected

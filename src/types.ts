@@ -108,6 +108,14 @@ export interface PostState {
   selectedTemplateId: string;
   selectedProductLogo: { id: string; name: string; src: string } | null;
   selectedBackgroundId: string;
+  selectedImage1Id?: string | null;
+  selectedImage2Id?: string | null;
+  image1Scale: number;
+  image1PanX: number;
+  image1PanY: number;
+  image2Scale: number;
+  image2PanX: number;
+  image2PanY: number;
   selectedImageId: string | null;
   secondaryImageId?: string | null;
   imageScale: number; // 0.5 to 3.0
